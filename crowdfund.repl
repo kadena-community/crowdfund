@@ -1,0 +1,231 @@
+(begin-tx "Load modules")
+  (env-data {
+    'namespace-keyset: { "keys": ["namespace"], "pred": "keys-all" },
+    'upgrade: false,
+    'ns: "n_32faa22a75da53789d48dcbcb124a11c8f8651a8"
+  })
+
+  (env-sigs [
+    { 'key: 'namespace
+     ,'caps: []
+     }])
+
+  (define-namespace "n_32faa22a75da53789d48dcbcb124a11c8f8651a8" (read-keyset "namespace-keyset") (read-keyset "namespace-keyset"))
+
+  (load "./root/fungible-v2.pact")
+  (load "./root/fungible-xchain-v1.pact")
+  (load "./root/coin.pact")
+  (load "crowdfund.pact")
+(commit-tx)
+
+(begin-tx "Create a project")
+  (env-chain-data {"block-time": (time "2023-01-01T15:00:00Z")})
+  (use n_32faa22a75da53789d48dcbcb124a11c8f8651a8.crowdfund)
+
+  (env-data {
+   "owner-guard": {"keys": ["owner"], "pred": "keys-all"}
+   ,"jane-guard": {"keys": ["jane"], "pred": "keys-all"}
+   ,"dummy-guard": {"keys": ["dummy"], "pred": "keys-all"}
+    })
+
+  (test-capability (coin.COINBASE))
+  (coin.coinbase "owner-account" (read-keyset "owner-guard") 500.0)
+  (coin.coinbase "jane-account" (read-keyset "jane-guard") 500.0)
+  (coin.coinbase "dummy-account" (read-keyset "dummy-guard") 500.0)
+
+  (expect-failure
+    "Start Date should be before end date"
+    (create-project
+      "project1"
+      "My first project"
+      coin
+      350.0
+      200.0
+      (time "2023-01-01T18:00:00Z")
+      (time "2021-01-03T19:00:00Z")
+      "owner-account"
+      (read-keyset "owner-guard")
+    ))
+  (expect-failure
+    "Start Date shouldn't be in the past"
+    (create-project
+      "project1"
+      "My first project"
+      coin
+      350.0
+      200.0
+      (time "2023-01-01T14:00:00Z")
+      (time "2023-01-03T19:00:00Z")
+      "owner-account"
+      (read-keyset "owner-guard")
+    ))
+  (expect-failure
+    "Hardcap should be higher than softcap"
+    (create-project
+      "project1"
+      "My first project"
+      coin
+      350.0
+      500.0
+      (time "2023-01-01T14:00:00Z")
+      (time "2023-01-03T19:00:00Z")
+      "owner-account"
+      (read-keyset "owner-guard")
+    ))
+
+  (expect "Create project succeeds"
+    "Write succeeded"
+    (create-project
+      "project1"
+      "My first project"
+      coin
+      350.0
+      200.0
+      (time "2023-01-01T18:00:00Z")
+      (time "2023-01-03T19:00:00Z")
+      "owner-account"
+      (read-keyset "owner-guard")
+    ))
+
+  (expect "read project should return all projects in table"
+    (format "{}" [[{"endDate": "2023-01-03T19:00:00Z","hardCap": 350.0,"projectId": "project1","raised": 0.0,"softCap": 200.0,"startDate": "2023-01-01T18:00:00Z","status": 0,"title": "My first project","token": coin}]])
+    (format "{}" [(read-projects)]))
+
+(commit-tx)
+
+(begin-tx "Fund a project")
+  (use n_32faa22a75da53789d48dcbcb124a11c8f8651a8.crowdfund)
+
+  (expect-failure "Funding will fail since project hasn't started yet"
+    "PROJECT HAS NOT YET STARTED"
+    (fund-project "project1" "jane-account" 250.0))
+
+  ;;Shift time so the project has started
+  (env-chain-data {"block-time": (time "2023-01-02T18:00:00Z")})
+
+  (env-sigs [{
+    'key: "jane",
+    'caps: [
+      (coin.TRANSFER "jane-account" "c:13e_JrA-ZO5br3kCy4O9Z1qprEALOlgsBrd7eefqU9k" 250.0)
+      (ACCT_GUARD "jane-account" coin)]}])
+
+  (expect "Fund project succeeds"
+    "Write succeeded"
+    (fund-project "project1"  "jane-account" 250.0))
+
+  (expect "Funded amount reflects investment"
+    {"fundedAmount": 250.0,"projectId": "project1"}
+    (fetch-funded-amount "project1" "jane-account")
+  )
+
+  (expect "Remaining balance is 250.0"
+    250.0
+    (coin.get-balance "jane-account"))
+
+  (expect "Raised amount is reflected in project-table"
+    (format "{}" [{"raised": 250.0,"hardCap": 350.0,"softCap": 200.0,"status": 0}])
+    (format "{}" [(read-project-fundstate "project1")]))
+(commit-tx)
+
+(begin-tx "Change project status")
+  (use n_32faa22a75da53789d48dcbcb124a11c8f8651a8.crowdfund)
+  (env-sigs [
+    {
+    'key: "owner",
+    'caps: []}])
+
+  (expect-failure "Can't cancel since project has already started"
+    "PROJECT HAS ALREADY STARTED, CANNOT CANCEL"
+    (cancel-project 'project1))
+
+  (expect-failure "Can't fail project if softcap has been reached"
+    "PROJECT HAS NOT ENDED"
+    (fail-project 'project1))
+
+  (expect-failure "Can't succeed if project is still open and hardcap not met"
+    "PROJECT HAS NOT ENDED OR HARDCAP NOT MET"
+    (succeed-project 'project1))
+(rollback-tx)
+
+
+(begin-tx "Funding not possible if hardCap is met")
+  (use n_32faa22a75da53789d48dcbcb124a11c8f8651a8.crowdfund)
+
+  (env-sigs [{
+    'key: "jane",
+    'caps: [
+      (coin.TRANSFER "jane-account" "c:13e_JrA-ZO5br3kCy4O9Z1qprEALOlgsBrd7eefqU9k" 100.0)
+      (ACCT_GUARD "jane-account" coin)]}
+  ])
+
+  ;;
+  (expect "Try to fund 200 which exceeds hardCap, so only 100 is funded"
+    "Write succeeded"
+    (fund-project "project1" "jane-account" 200.0)
+  )
+
+  (expect "Raised amount is reflected in project-table"
+    (format "{}" [{"raised": 350.0,"hardCap": 350.0,"softCap": 200.0,"status": 0}])
+    (format "{}" [(read-project-fundstate "project1")]))
+
+  (expect-failure "Funding while hardcap is reached should fail"
+    "HARDCAP REACHED"
+    (fund-project "project1" "jane-account" 150.0))
+
+(rollback-tx)
+
+(begin-tx "Refund investment")
+  (use n_32faa22a75da53789d48dcbcb124a11c8f8651a8.crowdfund)
+
+  (env-sigs [{
+    'key: "jane",
+    'caps: [
+      (ACCT_GUARD "jane-account" coin)
+      (REFUND "project1" "jane-account")
+      ]}
+  ])
+
+  (expect "Jane has a balance of 205.0"
+    250.0
+    (coin.get-balance "jane-account"))
+
+  (expect "Jane's investment is refunded"
+    "Write succeeded"
+    (rollback-fund-project 'project1 'jane-account))
+
+  (expect "500.0" 500.0 (coin.get-balance 'jane-account))
+
+  (expect "Raised amount is reflected in project-table"
+    (format "{}" [{"raised": 0.0,"hardCap": 350.0,"softCap": 200.0,"status": 0}])
+    (format "{}" [(read-project-fundstate "project1")]))
+
+  (expect-failure "Try to refund again"
+    "NO ACTIVE FUNDS"
+    (rollback-fund-project 'project1 'jane-account))
+
+(rollback-tx)
+
+(begin-tx "Succeed project")
+  (use n_32faa22a75da53789d48dcbcb124a11c8f8651a8.crowdfund)
+  (env-sigs [
+    {
+    'key: "owner",
+    'caps: []
+  }])
+
+  ;;Shift time so the project has ended
+  (env-chain-data {"block-time": (time "2023-01-04T15:00:00Z")})
+
+  (expect "Project succeeds because hardcap is met"
+    "Write succeeded"
+    (succeed-project 'project1))
+
+  (expect "The owner's account has received the invested amount 0f 250"
+    750.0
+    (coin.get-balance "owner-account"))
+
+  (expect "The project status is SUCCEEDED"
+    SUCCEEDED
+    (at "status" (read-project-fundstate "project1")))
+
+(commit-tx)
