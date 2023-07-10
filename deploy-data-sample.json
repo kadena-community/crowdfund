@@ -1,0 +1,5 @@
+{
+  "ns": "free",
+  "upgrade": false,
+  "admin-keyset": { "keys": [""], "pred": "keys-all" }
+}

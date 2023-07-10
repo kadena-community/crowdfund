@@ -64,7 +64,7 @@
 
   (defcap GOVERNANCE ()
     @doc " Give the admin full access to call and upgrade the module."
-    (enforce-keyset 'kadena-admin)
+    (enforce-keyset "free.crowdfund-admin")
   )
 
   (defcap ACCT_GUARD (account:string token:module{fungible-v2})
@@ -371,6 +371,7 @@
 (if (read-msg "upgrade")
   []
   [
+    (define-keyset "free.crowdfund-admin" (read-keyset "admin-keyset"))
     (create-table projects-table)
     (create-table funds-table)
   ]

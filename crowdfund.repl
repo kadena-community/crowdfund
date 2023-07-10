@@ -1,16 +1,16 @@
 (begin-tx "Load modules")
   (env-data {
-    'namespace-keyset: { "keys": ["namespace"], "pred": "keys-all" },
+    'admin-keyset: { "keys": ["admin"], "pred": "keys-all" },
     'upgrade: false,
-    'ns: "n_32faa22a75da53789d48dcbcb124a11c8f8651a8"
+    'ns: "free"
   })
 
   (env-sigs [
-    { 'key: 'namespace
+    { 'key: 'admin
      ,'caps: []
      }])
 
-  (define-namespace "n_32faa22a75da53789d48dcbcb124a11c8f8651a8" (read-keyset "namespace-keyset") (read-keyset "namespace-keyset"))
+  (define-namespace "free" (read-keyset "admin-keyset") (read-keyset "admin-keyset"))
 
   (load "./root/fungible-v2.pact")
   (load "./root/fungible-xchain-v1.pact")
@@ -20,7 +20,7 @@
 
 (begin-tx "Create a project")
   (env-chain-data {"block-time": (time "2023-01-01T15:00:00Z")})
-  (use n_32faa22a75da53789d48dcbcb124a11c8f8651a8.crowdfund)
+  (use free.crowdfund)
 
   (env-data {
    "owner-guard": {"keys": ["owner"], "pred": "keys-all"}
@@ -94,7 +94,7 @@
 (commit-tx)
 
 (begin-tx "Fund a project")
-  (use n_32faa22a75da53789d48dcbcb124a11c8f8651a8.crowdfund)
+  (use free.crowdfund)
 
   (expect-failure "Funding will fail since project hasn't started yet"
     "PROJECT HAS NOT YET STARTED"
@@ -106,7 +106,7 @@
   (env-sigs [{
     'key: "jane",
     'caps: [
-      (coin.TRANSFER "jane-account" "c:13e_JrA-ZO5br3kCy4O9Z1qprEALOlgsBrd7eefqU9k" 250.0)
+      (coin.TRANSFER "jane-account" "c:ogtUEBCuhLHaqKSyTm7bhmqqfy4gXjEE9PHFNxhEoNQ" 250.0)
       (ACCT_GUARD "jane-account" coin)]}])
 
   (expect "Fund project succeeds"
@@ -128,7 +128,7 @@
 (commit-tx)
 
 (begin-tx "Change project status")
-  (use n_32faa22a75da53789d48dcbcb124a11c8f8651a8.crowdfund)
+  (use free.crowdfund)
   (env-sigs [
     {
     'key: "owner",
@@ -149,12 +149,12 @@
 
 
 (begin-tx "Funding not possible if hardCap is met")
-  (use n_32faa22a75da53789d48dcbcb124a11c8f8651a8.crowdfund)
+  (use free.crowdfund)
 
   (env-sigs [{
     'key: "jane",
     'caps: [
-      (coin.TRANSFER "jane-account" "c:13e_JrA-ZO5br3kCy4O9Z1qprEALOlgsBrd7eefqU9k" 100.0)
+      (coin.TRANSFER "jane-account" "c:ogtUEBCuhLHaqKSyTm7bhmqqfy4gXjEE9PHFNxhEoNQ" 100.0)
       (ACCT_GUARD "jane-account" coin)]}
   ])
 
@@ -175,7 +175,7 @@
 (rollback-tx)
 
 (begin-tx "Refund investment")
-  (use n_32faa22a75da53789d48dcbcb124a11c8f8651a8.crowdfund)
+  (use free.crowdfund)
 
   (env-sigs [{
     'key: "jane",
@@ -206,7 +206,7 @@
 (rollback-tx)
 
 (begin-tx "Succeed project")
-  (use n_32faa22a75da53789d48dcbcb124a11c8f8651a8.crowdfund)
+  (use free.crowdfund)
   (env-sigs [
     {
     'key: "owner",
