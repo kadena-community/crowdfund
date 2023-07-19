@@ -16,8 +16,8 @@
     startDate:time
     endDate:time
     status:integer
-    beneficiary:string
-    beneficiary-guard:guard
+    project-owner:string
+    project-owner-guard:guard
   )
 
   ;define funds schema
@@ -143,9 +143,9 @@
   (defcap PROJECT_OWNER:bool (projectId)
     @doc "Capability that validates if the user is the owner of the project"
     (with-read projects-table projectId {
-      "beneficiary-guard":=beneficiary-guard
+      "project-owner-guard":=project-owner-guard
       }
-      (enforce-guard beneficiary-guard))
+      (enforce-guard project-owner-guard))
   )
 
   (defcap VAULT_GUARD:bool (project-id:string) true)
@@ -164,8 +164,8 @@
     softCap:decimal
     startDate:time
     endDate:time
-    beneficiary:string
-    beneficiary-guard:guard)
+    project-owner:string
+    project-owner-guard:guard)
     "Adds a project to projects table"
     (enforce (< (curr-time) startDate) "Start Date shouldn't be in the past")
     (enforce (< startDate endDate) "Start Date should be before end date")
@@ -183,8 +183,8 @@
         "startDate":startDate,
         "endDate": endDate,
         "status": CREATED,
-        "beneficiary": beneficiary,
-        "beneficiary-guard": beneficiary-guard
+        "project-owner": project-owner,
+        "project-owner-guard": project-owner-guard
         })
   )
 
@@ -205,13 +205,13 @@
         (with-read projects-table projectId {
           "raised":= raised,
           "token":= token:module{fungible-v2},
-          "beneficiary":= beneficiary,
-          "beneficiary-guard":= beneficiary-guard
+          "project-owner":= project-owner,
+          "project-owner-guard":= project-owner-guard
           }
 
           (with-capability (VAULT_GUARD projectId)
-            (install-capability (token::TRANSFER (vault-account projectId) beneficiary raised))
-            (token::transfer-create (vault-account projectId) beneficiary beneficiary-guard raised)
+            (install-capability (token::TRANSFER (vault-account projectId) project-owner raised))
+            (token::transfer-create (vault-account projectId) project-owner project-owner-guard raised)
           )
         )
       )
