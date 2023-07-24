@@ -107,7 +107,7 @@
     'key: "jane",
     'caps: [
       (coin.TRANSFER "jane-account" "c:ogtUEBCuhLHaqKSyTm7bhmqqfy4gXjEE9PHFNxhEoNQ" 250.0)
-      (ACCT_GUARD "jane-account" coin)]}])
+      (ACCT_GUARD "jane-account" "project1")]}])
 
   (expect "Fund project succeeds"
     "Write succeeded"
@@ -123,8 +123,13 @@
     (coin.get-balance "jane-account"))
 
   (expect "Raised amount is reflected in project-table"
-    (format "{}" [{"raised": 250.0,"hardCap": 350.0,"softCap": 200.0,"status": 0}])
-    (format "{}" [(read-project-fundstate "project1")]))
+    250.0
+    (at "raised" (read-project "project1")))
+
+  ;  (expect "Number of investments is reflected in project-table"
+  ;    1
+  ;    (at "investments" (read-project "project1")))
+
 (commit-tx)
 
 (begin-tx "Change project status")
@@ -155,7 +160,7 @@
     'key: "jane",
     'caps: [
       (coin.TRANSFER "jane-account" "c:ogtUEBCuhLHaqKSyTm7bhmqqfy4gXjEE9PHFNxhEoNQ" 100.0)
-      (ACCT_GUARD "jane-account" coin)]}
+      (ACCT_GUARD "jane-account" "project1")]}
   ])
 
   ;;
@@ -165,8 +170,12 @@
   )
 
   (expect "Raised amount is reflected in project-table"
-    (format "{}" [{"raised": 350.0,"hardCap": 350.0,"softCap": 200.0,"status": 0}])
-    (format "{}" [(read-project-fundstate "project1")]))
+    350.0
+    (at "raised" (read-project "project1")))
+
+  ;  (expect "Number of investments is reflected in project-table"
+  ;    2
+  ;    (at "investments" (read-project "project1")))
 
   (expect-failure "Funding while hardcap is reached should fail"
     "HARDCAP REACHED"
@@ -180,7 +189,7 @@
   (env-sigs [{
     'key: "jane",
     'caps: [
-      (ACCT_GUARD "jane-account" coin)
+      (ACCT_GUARD "jane-account" "project1")
       (REFUND "project1" "jane-account")
       ]}
   ])
@@ -196,8 +205,8 @@
   (expect "500.0" 500.0 (coin.get-balance 'jane-account))
 
   (expect "Raised amount is reflected in project-table"
-    (format "{}" [{"raised": 0.0,"hardCap": 350.0,"softCap": 200.0,"status": 0}])
-    (format "{}" [(read-project-fundstate "project1")]))
+    0.0
+    (at "raised" (read-project "project1")))
 
   (expect-failure "Try to refund again"
     "NO ACTIVE FUNDS"
@@ -226,6 +235,6 @@
 
   (expect "The project status is SUCCEEDED"
     SUCCEEDED
-    (at "status" (read-project-fundstate "project1")))
+    (at "status" (read-project "project1")))
 
 (commit-tx)

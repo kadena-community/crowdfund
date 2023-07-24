@@ -67,8 +67,12 @@
     (enforce-keyset "free.crowdfund-admin")
   )
 
-  (defcap ACCT_GUARD (account:string token:module{fungible-v2})
-    (enforce-guard (at 'guard (token::details account)))
+  (defcap ACCT_GUARD (account:string projectId:string)
+    (with-read projects-table projectId {
+        "token":=token:module{fungible-v2}
+      }
+      (enforce-guard (at 'guard (token::details account)))
+    )
   )
 
   (defcap PROJECT_OPEN:bool (projectId:string)
@@ -284,7 +288,7 @@
         "token":= token:module{fungible-v2}
         }
         (with-capability (PROJECT_OPEN projectId)
-          (with-capability (ACCT_GUARD funder token)
+          (with-capability (ACCT_GUARD funder projectId)
             (let*
               (
                 (remainingProjectCap (- hardCap raised))
@@ -306,7 +310,7 @@
         (with-read projects-table projectId {
           "token":= token:module{fungible-v2}
           }
-          (with-capability (ACCT_GUARD funder token)
+          (with-capability (ACCT_GUARD funder projectId)
             (with-read funds-table (get-fund-key projectId funder) {
               "amount":= amount,
               "status":= status
@@ -315,7 +319,6 @@
 
               (cancel-fund projectId funder)
               (decrease-project-raise projectId amount)
-
 
                 (with-capability (VAULT_GUARD projectId)
                   (install-capability (token::TRANSFER (vault-account projectId) funder amount))
@@ -344,15 +347,8 @@
     )
   )
 
-  (defun read-project-fundstate (projectId)
-    (with-read projects-table projectId {
-      "raised":= raised,
-      "hardCap":= hardCap,
-      "softCap":= softCap,
-      "status":= status
-      }
-      { "raised": raised, "hardCap": hardCap, "softCap": softCap, "status": status }
-    )
+  (defun read-project (projectId)
+    (read projects-table projectId)
   )
 
   (defun read-projects:list ()
